@@ -1241,6 +1241,6 @@ class SQLConnector:  # noqa: PLR0904
             query = (
                 sa.update(table)
                 .values({soft_delete_column_name: deleted_date})
-                .where(version_column < current_version and soft_delete_column is None)
+                .where(sa.and_(version_column < current_version, soft_delete_column is None))
             )
             conn.execute(query)
