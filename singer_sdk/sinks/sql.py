@@ -6,7 +6,6 @@ import re
 import typing as t
 from collections import defaultdict
 from copy import copy
-from functools import cached_property
 from textwrap import dedent
 
 import sqlalchemy as sa
