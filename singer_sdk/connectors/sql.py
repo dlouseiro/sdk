@@ -1203,9 +1203,48 @@ class SQLConnector:  # noqa: PLR0904
             current_version: The current ACTIVATE version of the table.
         """
         with self._connect() as conn, conn.begin():
-            conn.execute(
-                sa.text(
-                    f"DELETE FROM {full_table_name} "  # noqa: S608
-                    f"WHERE {version_column_name} < {current_version}",
-                ),
+            table = self.get_table(
+                full_table_name=full_table_name, column_names=[version_column_name]
             )
+            version_column = getattr(table.columns, version_column_name)
+            query = sa.delete(table).where(version_column < current_version)
+            conn.execute(query)
+
+    def soft_delete_old_versions(
+        self,
+        *,
+        full_table_name: str,
+        version_column_name: str,
+        soft_delete_column_name: str,
+        current_version: int,
+        deleted_date: datetime,
+    ) -> None:
+        """Soft-deletes any old version rows from the table.
+
+        This is used to mark old versions as deleted when an ACTIVATE_VERSION message is
+        received.
+
+        Args:
+            full_table_name: The fully qualified table name.
+            version_column_name: The name of the version column.
+            soft_delete_column_name: The name of the (soft) deletion timestamp column.
+            current_version: The current ACTIVATE version of the table.
+            deleted_date: The date time to
+        """
+        with self._connect() as conn, conn.begin():
+            table = self.get_table(
+                full_table_name=full_table_name,
+                column_names=[version_column_name, soft_delete_column_name],
+            )
+            version_column = getattr(table.columns, version_column_name)
+            soft_delete_column = getattr(table.columns, version_column_name)
+            query = (
+                sa.update(table)
+                .values({soft_delete_column_name: deleted_date})
+                .where(
+                    sa.and_(
+                        version_column < current_version, soft_delete_column is None
+                    )
+                )
+            )
+            conn.execute(query)
