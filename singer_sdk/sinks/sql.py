@@ -6,11 +6,11 @@ import re
 import typing as t
 from collections import defaultdict
 from copy import copy
+from functools import cached_property
 from textwrap import dedent
 
 import sqlalchemy as sa
 from sqlalchemy.sql import quoted_name
-from sqlalchemy.sql.expression import bindparam
 
 from singer_sdk.connectors import SQLConnector
 from singer_sdk.exceptions import ConformedNameClashException
@@ -401,18 +401,13 @@ class SQLSink(BatchSink):
                 sql_type=sa.types.DateTime(),
             )
 
-        query = sa.text(
-            f"UPDATE {self.full_table_name}\n"
-            f"SET {self.soft_delete_column_name} = :deletedate \n"
-            f"WHERE {self.version_column_name} < :version \n"
-            f"  AND {self.soft_delete_column_name} IS NULL\n",
+        self.connector.soft_delete_old_versions(
+            full_table_name=self.full_table_name,
+            version_column_name=self.version_column_name,
+            soft_delete_column_name=self.soft_delete_column_name,
+            current_version=new_version,
+            deleted_date=deleted_at,
         )
-        query = query.bindparams(
-            bindparam("deletedate", value=deleted_at, type_=sa.types.DateTime),
-            bindparam("version", value=new_version, type_=sa.types.Integer),
-        )
-        with self.connector._connect() as conn, conn.begin():  # noqa: SLF001
-            conn.execute(query)
 
 
 __all__ = ["SQLConnector", "SQLSink"]
