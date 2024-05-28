@@ -1203,9 +1203,9 @@ class SQLConnector:  # noqa: PLR0904
             current_version: The current ACTIVATE version of the table.
         """
         with self._connect() as conn, conn.begin():
-            conn.execute(
-                sa.text(
-                    f"DELETE FROM {full_table_name} "  # noqa: S608
-                    f"WHERE {version_column_name} < {current_version}",
-                ),
+            table = self.get_table(
+                full_table_name=full_table_name, column_names=[version_column_name]
             )
+            version_column = getattr(table.columns, version_column_name)
+            query = sa.delete(table).where(version_column < current_version)
+            conn.execute(query)
